@@ -1,11 +1,12 @@
 import 'dotenv/config';
+import { config } from 'dotenv';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-export type LlmProvider = 'groq' | 'gemini';
+config({ path: join(homedir(), '.scommit.env') });
 
 export const env = {
-	groqApiKey: process.env.GROQ_API_KEY,
 	geminiApiKey: process.env.GEMINI_API_KEY,
-	fallbackProviders: ['groq', 'gemini'] as const,
 } as const;
 
 export type EnvironmentConfig = typeof env;
