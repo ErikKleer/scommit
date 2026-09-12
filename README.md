@@ -9,10 +9,6 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-![scommit demo preview](./docs/assets/demo.gif)
-
-_The interactive terminal flow previews the generated commit, PR summary, and risk score, then lets the developer commit, copy the summary, do both, or cancel without leaving the shell._
-
 ## Problem Statement
 
 Commit hygiene is often a repeated manual tax: developers spend several minutes turning a staged diff into a correctly scoped Conventional Commit, reviewers reconstruct context for PR descriptions, and release owners make deployment decisions with incomplete risk signals. Across a team making 20 commits per engineer per week, even five minutes of formatting and summarization becomes more than 33 engineer-hours per month for 10 engineers. The harder cost is inconsistency: subjective summaries and unstructured risk notes make changes difficult to scan and compare.
@@ -22,11 +18,6 @@ Commit hygiene is often a repeated manual tax: developers spend several minutes 
 ## Architecture & Pipeline
 
 ![scommit Architecture & Data Flow](./docs/assets/architecture.png)
-
-```text
-Git Staged Delta -> Context Sanitizer (Hunk & Token Pruning) -> LLM Gateway (Structured Outputs)
-                 -> Zod Schema Validation -> Interactive CLI UI -> Git Execution / Clipboard
-```
 
 The pipeline is intentionally narrow and inspectable:
 
