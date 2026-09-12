@@ -1,6 +1,7 @@
 {
   "name": "scommit",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "Local CLI for conventional commits, PR summaries, and risk analysis",
   "bin": {
     "scommit": "./dist/bin/index.js"

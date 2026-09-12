@@ -1,6 +1,4 @@
-# SCOMMIT
-
-**Autonomous CLI for Conventional Commits, PR Summaries & Risk Scoring**
+# SCOMMIT   : Conventional Commits, PR Summaries & Risk Analysis
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Zod](https://img.shields.io/badge/Zod-schema--validated-3E67B1)](https://zod.dev/)
@@ -8,47 +6,105 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Problem Statement
+## 📄 Summary
 
-Commit hygiene is often a repeated manual tax: developers spend several minutes turning a staged diff into a correctly scoped Conventional Commit, reviewers reconstruct context for PR descriptions, and release owners make deployment decisions with incomplete risk signals. Across a team making 20 commits per engineer per week, even five minutes of formatting and summarization becomes more than 33 engineer-hours per month for 10 engineers. The harder cost is inconsistency: subjective summaries and unstructured risk notes make changes difficult to scan and compare.
+`scommit` is a local CLI that turns the staged diff into a **Conventional Commit**, a **structured Pull Request summary**, and a **risk score from 1 to 5**. It uses Google Gemini to analyze changes while keeping the final decision to execute, copy, or cancel with the developer.
 
-`scommit` makes the staged diff the source of truth. It produces a Conventional Commit message, a structured PR summary, and a 1-to-5 risk score with a reason, while keeping the final execution decision with the developer.
+The project reduces the manual work of interpreting changes, writing consistent commit messages, and preparing review context. The staged diff is treated as the single source of truth, and no file outside that scope is sent for analysis.
 
-## Architecture & Pipeline
+---
 
-![scommit Architecture & Data Flow](./docs/assets/architecture.png)
+## 🎯 The Problem
 
-The pipeline is intentionally narrow and inspectable:
+Turning a set of changes into a clear commit message and a useful PR summary is repetitive work. Different descriptions of the same kind of change also make history harder to scan and risk harder to assess during reviews.
 
-1. **Diff Extraction**: runs `git diff --cached --no-ext-diff`, requires staged content, and passes only the staged delta to the analysis boundary.
-2. **Token Pruning**: parses files and hunks, prioritizes source files, bounds each file body, and fits the selected context to the configured character budget.
-3. **LLM Inference**: sends a deterministic system instruction to Google Gemini.
-4. **Schema Enforcement**: requests a native response schema, parses the payload, and validates every field with Zod before rendering or executing anything.
-5. **Terminal / Clipboard UX**: renders the commit and risk preview, formats the PR summary as Markdown, and exposes commit, copy, combined, and cancel actions.
+An automated tool must balance two risks: too much context can make analysis slow and unstable, while too little can hide important information. Invalid model output must also be prevented from creating a commit or being copied as a trusted result.
 
-## Engineering Highlights & Trade-offs
+---
 
-### Deterministic Output Contract
+## 💡 The Solution
 
-The output contract is represented once in `CommitAnalysisSchema`: the commit must match Conventional Commit syntax, the summary fields must be non-empty where required, and the risk score must be an integer from 1 through 5. Gemini receives a native JSON response schema, while Zod remains the trust boundary so malformed JSON, missing fields, and semantically invalid values fail before a commit or clipboard write is attempted. This does not make model output infallible; it makes invalid output observable and non-executable.
+`scommit` implements a small, local, validated pipeline:
 
-### Token Conservation Strategy
+1. **Staged diff extraction:** runs `git diff --cached --no-ext-diff` and requires staged changes.
+2. **Context reduction:** preserves relevant files and hunks, prioritizes source code, and applies character limits.
+3. **Structured analysis:** sends a deterministic instruction to Google Gemini and requests a native-schema JSON response.
+4. **Contract validation:** uses Zod to validate the Conventional Commit message, summary, and risk score.
+5. **Controlled action:** shows a terminal preview and lets the developer commit, copy the summary, do both, or cancel.
 
-Diff context is conserved in three layers:
+---
 
-- Hunk-aware rendering preserves diff metadata and only slices hunk content when a file exceeds its budget.
-- Source files are prioritized over secondary documentation and lower-signal file types. Lockfiles and other generated artifacts are naturally deprioritized by the extension policy rather than given equal weight with source code.
-- The default analysis bound is 16,000 characters, with a `--max-chars` override for controlled experiments or unusually large changes. Individual file bodies are capped at 4,000 characters and marked when truncated.
+## 🏛️ Solution Architecture
 
-The trade-off is deliberate: a bounded, representative diff usually yields a faster and more stable explanation than an unbounded payload, while the explicit truncation marker makes lost context visible to the model and the operator.
+![scommit architecture and data flow](./docs/assets/architecture.png)
 
-### Sub-2s Latency Architecture
+### 1. Diff extraction and prioritization
 
-The CLI performs one local Git read, one compact prompt, and one Gemini request. Flash-class models are designed for low-latency structured generation, and the provider-specific details remain behind the LLM client.
+Git provides only staged changes. The parser preserves file and hunk metadata, prioritizes source files, and limits each file body to 4,000 characters. The total analysis context defaults to 16,000 characters and can be adjusted with `--max-chars`.
 
-Treat sub-two-second response time as a target for normal-sized staged diffs, not a universal guarantee. Network distance, provider load, quota state, diff size, and cold starts are external variables. The architecture keeps the local portion deterministic and small so provider latency is the dominant, measurable term.
+### 2. Google Gemini inference
 
-## Getting Started
+The LLM client sends the selected context with a deterministic instruction and requests a structured response. Provider integration remains isolated behind the LLM client, keeping the rest of the pipeline independent from API details.
+
+### 3. Response validation
+
+The contract centralized in `CommitAnalysisSchema` validates commit syntax, required summary fields, and an integer risk score from 1 through 5. Invalid JSON, missing fields, or semantically incorrect values fail before any clipboard write or Git history change.
+
+### 4. Preview and execution
+
+The terminal displays the generated commit, change summary, and risk rationale. The action layer keeps Git mutation separate from analysis so the developer can review the result before execution.
+
+---
+
+## ✨ Key Features
+
+- **Conventional Commit:** generates a message compatible with the Conventional Commits standard.
+- **Pull Request summary:** produces a title, summary, key changes, and review notes in Markdown.
+- **Risk analysis:** scores the change from 1 to 5 and explains the rationale.
+- **Bounded context:** limits diff size and marks truncated files.
+- **Source prioritization:** favors source files over documentation, lockfiles, and lower-signal artifacts.
+- **Zod validation:** prevents invalid responses from reaching execution.
+- **Dry-run mode:** `--dry-run` shows the result without copying or creating a commit.
+- **Integrated clipboard:** copies the PR summary directly to the clipboard.
+- **Explicit actions:** commit, copy and commit, copy only the summary, or cancel.
+
+---
+
+## 🛠️ Technology Stack
+
+- **Language:** TypeScript with ESM modules.
+- **Runtime:** Node.js 18 or newer.
+- **Artificial intelligence:** Google Gemini Flash via `@google/generative-ai`.
+- **Validation:** Zod.
+- **Terminal interface:** `@clack/prompts` and `chalk`.
+- **Git and processes:** `execa`.
+- **Clipboard:** `clipboardy`.
+- **CLI:** Commander.
+- **Configuration:** dotenv and environment variables.
+- **Build:** tsup.
+
+---
+
+## 🚀 Development Journey and Key Concepts
+
+1. **Local foundation:** the flow started with staged diff reading and Git command execution through a TypeScript CLI.
+2. **Representative context:** analysis evolved into file and hunk selection with priorities and limits to avoid unnecessarily large payloads.
+3. **Structured contract:** model output adopted a native schema and Zod validation before any action.
+4. **Separation of concerns:** diff extraction, LLM analysis, rendering, and Git mutation remain in separate modules.
+5. **Review experience:** the result gained a preview, `--dry-run`, summary copying, and an explicit action menu.
+
+---
+
+## 🤔 Challenges and Lessons Learned
+
+- **Context versus latency:** limiting the diff improves predictability, but requires prioritizing the content with the highest analysis value.
+- **Model responses are not contracts:** native schemas help, but Zod validation remains the trust boundary.
+- **Automation with human control:** generating artifacts automatically should not mean creating commits without an explicit decision.
+- **External latency:** the local flow is deterministic, but network distance, provider load, quota, diff size, and cold starts affect total time.
+
+---
+
+## ⚙️ Installation and Configuration
 
 ### Prerequisites
 
@@ -56,15 +112,13 @@ Treat sub-two-second response time as a target for normal-sized staged diffs, no
 - Git
 - A Gemini API key
 
-### Installation
-
-Install the published CLI globally:
+### Global installation
 
 ```bash
 npm install -g scommit
 ```
 
-For local development:
+### Local development
 
 ```bash
 git clone <repository-url>
@@ -74,20 +128,9 @@ npm run build
 npm link
 ```
 
-### Configuration
+### Gemini API key
 
-`scommit` requires `GEMINI_API_KEY` to analyze staged diffs and produce a structured Conventional Commit message, PR summary, and risk score.
-
-#### Get a Gemini API key
-
-Get a free key from [Google AI Studio](https://aistudio.google.com/):
-
-1. Sign in with your Google account.
-2. Select **Get API key**, create or select a project, and copy the generated key.
-
-#### Option A: Global Environment Variable
-
-Set `GEMINI_API_KEY` in your user environment.
+Create a free key in [Google AI Studio](https://aistudio.google.com/) and configure `GEMINI_API_KEY` in the user environment.
 
 **Windows PowerShell**
 
@@ -95,42 +138,26 @@ Set `GEMINI_API_KEY` in your user environment.
 [System.Environment]::SetEnvironmentVariable('GEMINI_API_KEY', '<key>', 'User')
 ```
 
-**macOS, Linux, or WSL**
-
-Add the export to `~/.bashrc` or `~/.zshrc`:
+**macOS, Linux ou WSL**
 
 ```bash
 echo 'export GEMINI_API_KEY="<key>"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-#### Option B: Global Dotenv File
-
-For a persistent fallback, create `~/.scommit.env` in your home directory:
-
-**Windows PowerShell**
-
-```powershell
-Set-Content -Path "$HOME/.scommit.env" -Value 'GEMINI_API_KEY=<key>'
-```
-
-**macOS, Linux, or WSL**
-
-```bash
-echo 'GEMINI_API_KEY=<key>' > ~/.scommit.env
-```
-
-Keep this file private and never commit it. For local development, you can also use a project `.env` file:
+Alternatively, create `~/.scommit.env`:
 
 ```dotenv
 GEMINI_API_KEY="your_gemini_api_key_here"
 ```
 
-> **Windows & VS Code:** Newly added Windows environment variables are not inherited by already-open terminals, PowerShell sessions, or VS Code instances. Close and reopen terminals, restart PowerShell, and reload or restart VS Code before running `scommit`.
+Keep this file private and never commit it. On Windows and in VS Code, restart terminals after adding a new environment variable.
 
-## Usage
+---
 
-Stage changes first, then run:
+## ▶️ Usage
+
+Stage your changes and run:
 
 ```bash
 scommit
@@ -138,32 +165,26 @@ scommit --dry-run
 scommit --max-chars <n>
 ```
 
-| Command                   | Purpose                                                              |
-| ------------------------- | -------------------------------------------------------------------- |
-| `scommit`                 | Analyze the staged diff, show the preview, and open the action menu. |
-| `scommit --dry-run`       | Show the analysis without committing or copying anything.            |
-| `scommit --max-chars <n>` | Set the maximum staged-diff characters sent to the model.            |
+| Command | Purpose |
+| --- | --- |
+| `scommit` | Analyze the staged diff, show the preview, and open the action menu. |
+| `scommit --dry-run` | Show the analysis without copying or creating a commit. |
+| `scommit --max-chars <n>` | Set the maximum number of characters sent to the model. |
 
-### Interactive Menu
+After the preview, the menu offers:
 
-After the analysis preview, the terminal presents four actions:
+- **Commit directly:** execute `git commit` with the generated message.
+- **Copy PR summary and commit:** copy the Markdown and create the commit.
+- **Copy PR summary only:** copy the summary without changing history.
+- **Cancel:** exit without copying or creating a commit.
 
-- **Commit directly**: execute `git commit` using the generated Conventional Commit message.
-- **Copy PR Summary & Commit**: copy the Markdown PR summary to the system clipboard, then create the commit.
-- **Copy PR Summary only**: copy the summary without changing Git history.
-- **Cancel**: exit without copying or committing.
+---
 
-`--dry-run` is the review and automation-friendly mode: it renders the same generated artifacts while bypassing the interactive action boundary.
-
-## Development
+## 🧪 Development
 
 ```bash
 npm run dev -- --help
 npm run build
 ```
 
-The project is a small TypeScript ESM CLI. Provider integrations live behind the LLM client, the schema is centralized, and Git mutation is kept behind the action layer so the analysis path remains testable and reviewable.
-
-## License
-
-MIT
+Provider integrations remain behind the LLM client, the schema is centralized, and Git mutations stay in the action layer. This keeps the analysis path small, reviewable, and easy to test.
