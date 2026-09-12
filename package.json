@@ -1,0 +1,30 @@
+{
+  "name": "scommit",
+  "version": "0.1.0",
+  "description": "Local CLI for conventional commits, PR summaries, and risk analysis",
+  "bin": {
+    "scommit": "./dist/bin/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsup bin/index.ts --format esm --clean --out-dir dist/bin",
+    "dev": "tsx bin/index.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0",
+    "@google/generative-ai": "^0.21.0",
+    "chalk": "^5.3.0",
+    "clipboardy": "^5.3.2",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "execa": "^8.0.1",
+    "groq-sdk": "^0.9.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}
