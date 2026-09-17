@@ -1,4 +1,4 @@
-# SCOMMIT   : Conventional Commits, PR Summaries & Risk Analysis
+# SCOMMIT: Conventional Commits, PR Summaries & Risk Analysis
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Zod](https://img.shields.io/badge/Zod-schema--validated-3E67B1)](https://zod.dev/)
@@ -36,7 +36,40 @@ An automated tool must balance two risks: too much context can make analysis slo
 
 ## 🏛️ Solution Architecture
 
-![scommit architecture and data flow](./docs/assets/architecture.png)
+```mermaid
+flowchart LR
+	subgraph Local_Git ["1. Local Git"]
+		direction TB
+		A["git diff --staged"]
+		A_space[" "]
+		B["Sanitizer / Token Pruner"]
+		A --> B
+	end
+
+	subgraph LLM_Engine ["2. LLM Engine"]
+		direction TB
+		C["Gemini Flash / Groq"]
+		D["Zod Schema Validator"]
+		C --> D
+	end
+
+	subgraph Terminal_UX ["3. CLI UX"]
+		direction TB
+		E["@clack/prompts UI"]
+		F["Git Commit Exec"]
+		G["Clipboard Copy (PR MD)"]
+		E --> F
+		E --> G
+	end
+
+	B --> C
+	D --> E
+
+	style A_space display:none
+	style Local_Git fill:#0f172a,stroke:#38bdf8,stroke-width:1px,color:#fff
+	style LLM_Engine fill:#0f172a,stroke:#34d399,stroke-width:1px,color:#fff
+	style Terminal_UX fill:#0f172a,stroke:#f59e0b,stroke-width:1px,color:#fff
+```
 
 ### 1. Diff extraction and prioritization
 
@@ -165,11 +198,11 @@ scommit --dry-run
 scommit --max-chars <n>
 ```
 
-| Command | Purpose |
-| --- | --- |
-| `scommit` | Analyze the staged diff, show the preview, and open the action menu. |
-| `scommit --dry-run` | Show the analysis without copying or creating a commit. |
-| `scommit --max-chars <n>` | Set the maximum number of characters sent to the model. |
+| Command                   | Purpose                                                              |
+| ------------------------- | -------------------------------------------------------------------- |
+| `scommit`                 | Analyze the staged diff, show the preview, and open the action menu. |
+| `scommit --dry-run`       | Show the analysis without copying or creating a commit.              |
+| `scommit --max-chars <n>` | Set the maximum number of characters sent to the model.              |
 
 After the preview, the menu offers:
 
